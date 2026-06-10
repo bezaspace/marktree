@@ -10,6 +10,7 @@ import treeNodeRoutes from './routes/treeNodes.js';
 import documentRoutes from './routes/documents.js';
 import commentRoutes from './routes/comments.js';
 import notificationRoutes from './routes/notifications.js';
+import aiRoutes from './routes/ai.js';
 import { setupWebSocket } from './websocket.js';
 
 initDatabase(sqlite);
@@ -39,6 +40,7 @@ app.use('/api/tree-nodes', treeNodeRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/ai', aiRoutes);
 
 const server = app.listen(PORT, () => {
   console.log(`Marktree server running on http://localhost:${PORT}`);

@@ -254,14 +254,7 @@ Marktree is an open-source, web-based Markdown workspace for teams. It combines 
 - AI-related document suggestions
 - AI-full-text search enhancement (semantic search)
 
-### 5.5 AI Agent Attribution
-
-- Track AI-generated edits separately from human edits
-- Show AI icon next to AI-suggested changes
-- Filter history by human vs AI edits
-- AI usage analytics per workspace
-
-### 5.6 AI Configuration
+### 5.5 AI Configuration
 
 - Workspace-level AI provider settings (API keys, model selection)
 - User-level AI preferences

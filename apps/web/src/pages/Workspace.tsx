@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useSession, signOut } from "../lib/auth-client.js";
 import { Editor } from "../components/Editor.js";
 import { CommentSidebar, type CommentItem } from "../components/CommentSidebar.js";
+import { AIChatSidebar } from "../components/AIChatSidebar.js";
 import { NotificationBell } from "../components/NotificationBell.js";
 import * as Y from "yjs";
 import { MarktreeProvider } from "../lib/yjs-provider.js";
@@ -63,6 +64,11 @@ export default function Workspace() {
   const [commentRanges, setCommentRanges] = useState<CommentRange[]>([]);
   const [highlightedCommentId, setHighlightedCommentId] = useState<string | null>(null);
   const [comments, setComments] = useState<CommentItem[]>([]);
+
+  // Phase 5: AI state
+  const [aiOpen, setAiOpen] = useState(false);
+  const [selectedTextForAI, setSelectedTextForAI] = useState<string | null>(null);
+  const [triggerCommand, setTriggerCommand] = useState<string | null>(null);
 
   const yDocRef = useRef<Y.Doc | null>(null);
   const providerRef = useRef<MarktreeProvider | null>(null);
@@ -320,6 +326,45 @@ export default function Workspace() {
     setHighlightedCommentId(comment?.id || null);
   }
 
+  // Phase 5: AI handlers
+  function handleSelectionForAI(text: string) {
+    setSelectedTextForAI(text);
+    setAiOpen(true);
+    setTriggerCommand(null);
+  }
+
+  function handleSlashCommand(command: string) {
+    setAiOpen(true);
+    setTriggerCommand(`/${command}`);
+  }
+
+  function handleInsertText(text: string) {
+    // Insert at end of document (simplified)
+    // In a real implementation we'd use the editor's current cursor position
+    alert("Insert at cursor not yet implemented. Text copied to clipboard instead.");
+    navigator.clipboard.writeText(text);
+  }
+
+  function handleReplaceSelection(text: string) {
+    alert("Replace selection not yet implemented. Text copied to clipboard instead.");
+    navigator.clipboard.writeText(text);
+  }
+
+  function buildTreeStructure(): string {
+    const lines: string[] = [];
+    function walk(parentId: string | null, depth: number) {
+      nodes
+        .filter((n) => n.parentId === parentId)
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .forEach((n) => {
+          lines.push(`${"  ".repeat(depth)}- ${n.name}`);
+          if (n.type === "folder") walk(n.id, depth + 1);
+        });
+    }
+    walk(null, 0);
+    return lines.join("\n");
+  }
+
   function buildTree(parentId: string | null): TreeNode[] {
     return nodes
       .filter((n) => n.parentId === parentId)
@@ -522,6 +567,14 @@ export default function Workspace() {
                 </div>
                 <div className="flex items-center gap-3">
                   <button
+                    onClick={() => setAiOpen(!aiOpen)}
+                    className={`text-sm border rounded px-2 py-1 ${
+                      aiOpen ? "bg-purple-50 text-purple-700 border-purple-200" : "text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    AI
+                  </button>
+                  <button
                     onClick={() => setCommentsOpen(!commentsOpen)}
                     className={`text-sm border rounded px-2 py-1 ${
                       commentsOpen ? "bg-blue-50 text-blue-700 border-blue-200" : "text-gray-600 hover:text-gray-900"
@@ -548,6 +601,8 @@ export default function Workspace() {
                     saving={saving}
                     onContentChange={setDocContent}
                     onSelectionForComment={handleSelectionForComment}
+                    onSelectionForAI={handleSelectionForAI}
+                    onSlashCommand={handleSlashCommand}
                     commentRanges={commentRanges}
                     highlightedCommentId={highlightedCommentId}
                   />
@@ -560,6 +615,20 @@ export default function Workspace() {
             </div>
           )}
         </main>
+
+        {/* AI Sidebar */}
+        {aiOpen && selectedDoc && (
+          <AIChatSidebar
+            documentId={selectedDoc.id}
+            documentTitle={selectedDoc.title}
+            documentContent={docContent}
+            treeStructure={buildTreeStructure()}
+            selectedText={selectedTextForAI}
+            onInsertText={handleInsertText}
+            onReplaceSelection={handleReplaceSelection}
+            triggerCommand={triggerCommand}
+          />
+        )}
 
         {/* Comment Sidebar */}
         {commentsOpen && selectedDoc && (

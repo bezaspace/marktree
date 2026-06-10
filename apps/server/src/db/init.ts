@@ -122,5 +122,20 @@ export function initDatabase(sqlite: Database.Database) {
       related_comment_id TEXT REFERENCES comment(id),
       created_at INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS ai_conversation (
+      id TEXT PRIMARY KEY,
+      document_id TEXT NOT NULL REFERENCES document(id),
+      user_id TEXT NOT NULL REFERENCES "user"(id),
+      created_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS ai_message (
+      id TEXT PRIMARY KEY,
+      conversation_id TEXT NOT NULL REFERENCES ai_conversation(id),
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    );
   `);
 }

@@ -163,3 +163,29 @@ export const notificationRelations = relations(notification, ({ one }) => ({
   relatedDocument: one(document, { fields: [notification.relatedDocumentId], references: [document.id] }),
   relatedComment: one(comment, { fields: [notification.relatedCommentId], references: [comment.id] }),
 }));
+
+// Phase 5: AI Integration
+export const aiConversation = sqliteTable('ai_conversation', {
+  id: text('id').primaryKey(),
+  documentId: text('document_id').notNull().references(() => document.id),
+  userId: text('user_id').notNull().references(() => user.id),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+});
+
+export const aiMessage = sqliteTable('ai_message', {
+  id: text('id').primaryKey(),
+  conversationId: text('conversation_id').notNull().references(() => aiConversation.id),
+  role: text('role', { enum: ['user', 'assistant', 'system'] }).notNull(),
+  content: text('content').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+});
+
+export const aiConversationRelations = relations(aiConversation, ({ one, many }) => ({
+  document: one(document, { fields: [aiConversation.documentId], references: [document.id] }),
+  user: one(user, { fields: [aiConversation.userId], references: [user.id] }),
+  messages: many(aiMessage),
+}));
+
+export const aiMessageRelations = relations(aiMessage, ({ one }) => ({
+  conversation: one(aiConversation, { fields: [aiMessage.conversationId], references: [aiConversation.id] }),
+}));

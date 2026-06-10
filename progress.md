@@ -22,6 +22,7 @@ This is the **decision log and implementation journal**. It records what was bui
 | Real-Time Collaboration | **Completed** | 2026-06-10 |
 | Version Control | **Completed** | 2026-06-10 |
 | Comments & Review | **Completed** | 2026-06-10 |
+| AI Integration | **Completed** | 2026-06-10 |
 
 ---
 
@@ -124,6 +125,37 @@ This is the **decision log and implementation journal**. It records what was bui
 **Impact:**
 - New files: `apps/server/src/routes/comments.ts`, `apps/server/src/routes/notifications.ts`, `apps/web/src/components/CommentSidebar.tsx`, `apps/web/src/components/NotificationBell.tsx`, `apps/web/src/components/comment-highlight.ts`.
 - Modified: `apps/server/src/db/schema.ts`, `apps/server/src/db/init.ts`, `apps/server/src/index.ts`, `apps/web/src/components/Editor.tsx`, `apps/web/src/pages/Workspace.tsx`, `apps/web/src/index.css`, `packages/shared/src/schemas.ts`, `packages/shared/src/types.ts`.
+- Updated `progress.md` and `roadmap.md`.
+
+### 2026-06-10 — Phase 5: AI Integration Implemented
+
+**What happened:**
+- Added `ai_conversation` and `ai_message` tables to SQLite schema for per-document, persisted multi-turn AI chat history.
+- Built backend AI route (`apps/server/src/routes/ai.ts`) using the **Vercel AI SDK** (`ai` + `@ai-sdk/openai`) with Kilo Gateway as an OpenAI-compatible provider.
+- Implemented three streaming endpoints:
+  - `POST /api/ai/chat` — General context-aware chat with document content, folder structure, and selection as system context.
+  - `POST /api/ai/slash` — Slash command processing (`/summarize`, `/expand`, `/simplify`, `/fix-grammar`, `/translate`, `/generate-toc`).
+  - `POST /api/ai/inline` — Inline editing with selected text and a user instruction.
+  - `GET /api/ai/messages/:documentId` and `DELETE` — Chat history retrieval and clearing.
+- All endpoints stream responses via SSE using `streamText` from the Vercel AI SDK.
+- Frontend: created `AIChatSidebar` component with custom SSE streaming, copy-to-clipboard, insert, and replace actions.
+- Frontend: created `SlashCommandPalette` component that appears when typing `/` at the start of a line or after whitespace.
+- Updated `Editor.tsx` to show an "Ask AI" button in the floating toolbar when text is selected, and added `Cmd+K` / `Ctrl+K` keyboard shortcut for inline AI editing.
+- Updated `Workspace.tsx` to integrate the AI sidebar alongside the comment sidebar, pass document context (title, content, folder structure, selection) to the AI, and handle slash commands.
+- Created `.env.example` with `KILO_API_KEY`, `KILO_BASE_URL`, and `AI_MODEL` placeholders.
+
+**Decisions made:**
+- **Vercel AI SDK for streaming:** Using `streamText` with `createOpenAI({ baseURL, apiKey })` gives us robust SSE streaming with minimal custom code. The `ai` package handles provider abstraction, retries, and error handling.
+- **Kilo Gateway as single provider:** We use `https://api.kilo.ai/api/gateway` as the OpenAI-compatible base URL with `stepfun/step-3.7-flash` as the default model. This is configurable via `AI_MODEL` env var.
+- **Custom SSE parser on frontend:** Since we're not using Next.js, we wrote a lightweight custom hook inside `AIChatSidebar` that uses `fetch` + `ReadableStream` to consume the backend's SSE stream. This avoids coupling to Next.js-specific `useChat` assumptions.
+- **Per-document conversation persistence:** Each document gets one AI conversation per user. Messages are stored in `ai_message` table and loaded when the sidebar opens.
+- **Slash commands go to dedicated endpoint:** Rather than overloading the chat endpoint, `/api/ai/slash` handles predefined system prompts for each command. This keeps command logic on the backend.
+- **Deferred from MVP:** AI document actions (5.4: auto-summary, TOC, tag suggestions) and AI configuration UI (5.5: workspace-level provider settings, cost tracking) are out of scope for this session. The backend endpoints support them but no dedicated UI was built.
+
+**Impact:**
+- New files: `apps/server/src/routes/ai.ts`, `apps/web/src/components/AIChatSidebar.tsx`, `apps/web/src/components/SlashCommandPalette.tsx`, `apps/server/.env.example`.
+- Modified: `apps/server/src/db/schema.ts`, `apps/server/src/db/init.ts`, `apps/server/src/index.ts`, `apps/web/src/components/Editor.tsx`, `apps/web/src/pages/Workspace.tsx`.
+- New dependencies: `ai`, `@ai-sdk/openai` in `apps/server`.
 - Updated `progress.md` and `roadmap.md`.
 
 ---

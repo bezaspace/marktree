@@ -6,6 +6,7 @@ import { useEffect, useCallback, useState, useRef } from "react";
 import * as Y from "yjs";
 import type { MarktreeProvider } from "../lib/yjs-provider.js";
 import { CommentHighlight, type CommentRange } from "./comment-highlight.js";
+import { SlashCommandPalette } from "./SlashCommandPalette.js";
 
 interface EditorProps {
   yDoc: Y.Doc;
@@ -15,6 +16,8 @@ interface EditorProps {
   saving?: boolean;
   onContentChange?: (content: string) => void;
   onSelectionForComment?: (range: { from: number; to: number } | null, relStart: string | null, relEnd: string | null) => void;
+  onSelectionForAI?: (text: string) => void;
+  onSlashCommand?: (command: string) => void;
   commentRanges?: CommentRange[];
   highlightedCommentId?: string | null;
 }
@@ -40,10 +43,14 @@ export function Editor({
   saving,
   onContentChange,
   onSelectionForComment,
+  onSelectionForAI,
+  onSlashCommand,
   commentRanges = [],
   highlightedCommentId,
 }: EditorProps) {
   const [floatingPos, setFloatingPos] = useState<{ top: number; left: number } | null>(null);
+  const [showSlashPalette, setShowSlashPalette] = useState(false);
+  const [selectedText, setSelectedText] = useState("");
   const editorRef = useRef<HTMLDivElement>(null);
 
   const editor = useEditor({
@@ -77,7 +84,16 @@ export function Editor({
       if (empty) {
         setFloatingPos(null);
         onSelectionForComment?.(null, null, null);
+        setSelectedText("");
         return;
+      }
+
+      // Capture selected text for AI
+      try {
+        const text = editor.state.doc.textBetween(from, to, "\n");
+        setSelectedText(text);
+      } catch {
+        setSelectedText("");
       }
 
       // Compute floating toolbar position
@@ -159,20 +175,55 @@ export function Editor({
     setFloatingPos(null);
   }, [editor, yDoc, onSelectionForComment]);
 
-  const handleSave = useCallback(
+  const handleAskAI = useCallback(() => {
+    if (selectedText) {
+      onSelectionForAI?.(selectedText);
+      setFloatingPos(null);
+    }
+  }, [selectedText, onSelectionForAI]);
+
+  const handleSlashCommand = useCallback(
+    (command: string) => {
+      setShowSlashPalette(false);
+      onSlashCommand?.(command);
+    },
+    [onSlashCommand]
+  );
+
+  const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      // Save shortcut
       if ((e.metaKey || e.ctrlKey) && e.key === "s") {
         e.preventDefault();
         onSave();
+        return;
+      }
+      // Cmd+K / Ctrl+K -> Ask AI on selection
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        if (selectedText) {
+          onSelectionForAI?.(selectedText);
+        }
+        return;
+      }
+      // Slash command trigger (when palette is not open)
+      if (e.key === "/" && !showSlashPalette && onSlashCommand && editor) {
+        const { from } = editor.state.selection;
+        const $pos = editor.state.doc.resolve(from);
+        const isAtStart = $pos.parentOffset === 0;
+        const prevChar = from > 1 ? editor.state.doc.textBetween(from - 1, from) : "";
+        if (isAtStart || prevChar === " " || prevChar === "\n") {
+          setShowSlashPalette(true);
+        }
       }
     },
-    [onSave]
+    [onSave, selectedText, onSelectionForAI, showSlashPalette, onSlashCommand, editor]
   );
 
   if (!editor) return null;
 
   return (
-    <div ref={editorRef} onKeyDown={handleSave} className="h-full flex flex-col relative">
+    <div ref={editorRef} onKeyDown={handleKeyDown} className="h-full flex flex-col relative">
       <div className="flex gap-2 mb-4 border-b pb-2 items-center">
         <button
           onClick={() => editor.chain().focus().toggleBold().run()}
@@ -239,15 +290,35 @@ export function Editor({
         </button>
       </div>
 
-      {/* Floating comment button */}
+      {/* Floating toolbar: comment + AI */}
       {floatingPos && (
         <div
-          className="absolute z-20 bg-gray-900 text-white text-xs px-3 py-1.5 rounded shadow-lg cursor-pointer hover:bg-gray-800 transition-colors"
+          className="absolute z-20 flex gap-1 bg-gray-900 text-white text-xs rounded shadow-lg overflow-hidden"
           style={{ top: floatingPos.top, left: floatingPos.left }}
-          onClick={handleAddComment}
         >
-          Add comment
+          <button
+            onClick={handleAddComment}
+            className="px-3 py-1.5 hover:bg-gray-800 transition-colors"
+          >
+            Add comment
+          </button>
+          <div className="w-px bg-gray-700 my-1" />
+          <button
+            onClick={handleAskAI}
+            className="px-3 py-1.5 hover:bg-gray-800 transition-colors"
+          >
+            Ask AI
+          </button>
         </div>
+      )}
+
+      {showSlashPalette && editor && (
+        <SlashCommandPalette
+          editorRef={editorRef}
+          editorView={editor.view}
+          onCommand={handleSlashCommand}
+          onClose={() => setShowSlashPalette(false)}
+        />
       )}
 
       <EditorContent editor={editor} />

@@ -23,6 +23,7 @@ The smallest set of features that makes Marktree usable by a single team. Everyt
 | 2 | Real-Time Collaboration | Yjs sync for multi-user editing on the same document | Phase 1 |
 | 3 | Version Control | Git-backed manual checkpoints, per-document history, diff/restore | Phase 1 |
 | 4 | Comments & Review | Inline comments, threaded replies, resolve/unresolve, in-app notifications | Phase 1 |
+| 5 | AI Integration | Sidebar chat, inline editing, slash commands, streaming via SSE | Phase 1 |
 
 ### MVP Details
 
@@ -45,6 +46,11 @@ The smallest set of features that makes Marktree usable by a single team. Everyt
 - From spec: Sections 4.1, 4.3, 4.4 (Inline Comments, @Mentions, Notifications)
 - Excluded from MVP: Suggestion mode / tracked changes (4.2), email notifications (4.4), full mention autocomplete (4.3)
 - Definition of Done: Users can select text and add anchored inline comments with threaded replies, resolve/unresolve comments, view a comment sidebar with filtering, and receive in-app notifications for new comments.
+
+**Phase 5: AI Integration — COMPLETED (2026-06-10)**
+- From spec: Sections 5.1–5.3 (AI Chat Sidebar, Inline AI Editing, Slash Commands)
+- Excluded from MVP: AI document actions UI (5.4: auto-summary, tag suggestions, semantic search), AI configuration UI (5.5: workspace-level provider settings, multi-model support, cost tracking)
+- Definition of Done: Users can open an AI chat sidebar per document with streaming responses, select text and ask the AI to rewrite it, use `/` slash commands in the editor, and persist chat history.
 
 ---
 
