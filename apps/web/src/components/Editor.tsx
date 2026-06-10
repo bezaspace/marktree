@@ -1,20 +1,31 @@
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
-import { useCallback } from "react";
+import Collaboration from "@tiptap/extension-collaboration";
+import { useEffect, useCallback } from "react";
+import * as Y from "yjs";
+import type { MarktreeProvider } from "../lib/yjs-provider.js";
 
 interface EditorProps {
-  content: string;
-  onSave: (content: string) => void;
+  yDoc: Y.Doc;
+  provider: MarktreeProvider;
+  initialContent?: string | null;
+  onSave: () => void;
+  saving?: boolean;
+  onContentChange?: (content: string) => void;
 }
 
-export function Editor({ content, onSave }: EditorProps) {
+export function Editor({ yDoc, provider, initialContent, onSave, saving, onContentChange }: EditorProps) {
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({
+        history: false,
+      }),
       Placeholder.configure({ placeholder: "Start writing..." }),
+      Collaboration.configure({
+        document: yDoc,
+      }),
     ],
-    content,
     editorProps: {
       attributes: {
         class:
@@ -22,27 +33,39 @@ export function Editor({ content, onSave }: EditorProps) {
       },
     },
     onUpdate: ({ editor }) => {
-      // We could auto-save here in the future
+      onContentChange?.(editor.getHTML());
     },
   });
+
+  // Populate initial content if Y.Doc is empty (first load from legacy current_content)
+  useEffect(() => {
+    if (!editor || !provider.initialized) return;
+    // Check if doc is effectively empty (just a default empty paragraph)
+    const fragment = yDoc.getXmlFragment("prosemirror");
+    if (fragment.length === 0 && initialContent) {
+      // Defer to avoid colliding with Collaboration init
+      const t = setTimeout(() => {
+        editor.commands.setContent(initialContent, false);
+      }, 0);
+      return () => clearTimeout(t);
+    }
+  }, [editor, provider.initialized, yDoc, initialContent]);
 
   const handleSave = useCallback(
     (e: React.KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "s") {
         e.preventDefault();
-        if (editor) {
-          onSave(editor.getHTML());
-        }
+        onSave();
       }
     },
-    [editor, onSave]
+    [onSave]
   );
 
   if (!editor) return null;
 
   return (
-    <div onKeyDown={handleSave} className="h-full">
-      <div className="flex gap-2 mb-4 border-b pb-2">
+    <div onKeyDown={handleSave} className="h-full flex flex-col">
+      <div className="flex gap-2 mb-4 border-b pb-2 items-center">
         <button
           onClick={() => editor.chain().focus().toggleBold().run()}
           className={`px-2 py-1 rounded text-sm ${editor.isActive("bold") ? "bg-gray-200" : "hover:bg-gray-100"}`}
@@ -92,11 +115,19 @@ export function Editor({ content, onSave }: EditorProps) {
           Code
         </button>
         <div className="flex-1" />
+        <span className="text-xs text-gray-500 mr-2">
+          {provider.status === "connected"
+            ? "Synced"
+            : provider.status === "connecting"
+            ? "Connecting..."
+            : "Disconnected"}
+        </span>
         <button
-          onClick={() => onSave(editor.getHTML())}
-          className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+          onClick={onSave}
+          disabled={saving}
+          className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50"
         >
-          Save
+          {saving ? "Saving..." : "Save"}
         </button>
       </div>
       <EditorContent editor={editor} />

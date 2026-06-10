@@ -19,8 +19,8 @@ This is the **decision log and implementation journal**. It records what was bui
 | Phase | Status | Date |
 |---|---|---|
 | Foundation | **Completed** | 2026-06-10 |
-| Real-Time Collaboration | Not started | — |
-| Version Control | Not started | — |
+| Real-Time Collaboration | **Completed** | 2026-06-10 |
+| Version Control | **Completed** | 2026-06-10 |
 
 ---
 
@@ -69,6 +69,35 @@ This is the **decision log and implementation journal**. It records what was bui
 - Updated `ARCHITECTURE.md` auth row to reflect Better Auth.
 - Updated `roadmap.md` Phase 1 status to completed.
 - `progress.md` updated with this entry.
+
+---
+
+### 2026-06-10 — Phase 2 & 3: Real-Time Collaboration and Version Control Implemented
+
+**What happened:**
+- Integrated Yjs CRDT into the TipTap editor via `@tiptap/extension-collaboration`.
+- Built a custom WebSocket provider (`MarktreeProvider`) that connects to a server-side Yjs room manager.
+- Server maintains in-memory `Y.Doc` per document, loads persisted updates from the `yjs_update` SQLite table on first access, and appends new updates in real time.
+- Implemented room-based document sessions with Better Auth session validation over WebSocket upgrade requests.
+- Added reconnection logic with a 2-second backoff and connection status indicators in the editor toolbar.
+- Git integration: each workspace gets a normal (non-bare) Git repo initialized via `simple-git` on creation.
+- Every manual save (`POST /api/documents/:id/save`) writes the document as a Markdown file into the workspace Git repo and creates a commit with author attribution.
+- Added document-level version history endpoints: `/history`, `/diff`, and `/content-at`.
+- Built a frontend version history panel with timeline, diff viewer, and restore functionality.
+- Improved folder tree UI: collapsible folders, inline rename (double-click), delete with confirmation, search/filter, and breadcrumb navigation.
+- Fixed tree-node deletion to cascade recursively (deletes all descendants and their associated documents).
+- Server `tsconfig.json`: disabled declaration generation to resolve pre-existing `BetterSqlite3.Database` type-export errors.
+
+**Decisions made:**
+- **Custom lightweight WS provider instead of `y-websocket`:** Our server protocol is simpler (full state on connect + raw Yjs updates). It avoids the complexity of matching the full `y-websocket` server spec and integrates cleanly with our existing Express HTTP server and Better Auth cookie sessions.
+- **Normal Git repos instead of bare repos:** `simple-git` can add/commit files in a working tree directly. A bare repo would require low-level Git object manipulation or `--work-tree` tricks. The `git_repo_path` schema field is unchanged.
+- **Client-side Markdown generation for Git commits:** On explicit save, the client sends `editor.getHTML()` to the server, which writes it to the repo. True server-side Markdown conversion from Yjs would require a ProseMirror schema on the backend — deferred as a future enhancement.
+- **Yjs update persistence is append-only:** The `yjs_update` table stores every individual Yjs update blob. Document state is reconstructed by applying all updates in order. This is robust and simple at the cost of unbounded table growth (compaction can be added later).
+
+**Impact:**
+- New files: `apps/server/src/websocket.ts`, `apps/server/src/lib/git.ts`, `apps/web/src/lib/yjs-provider.ts`.
+- Modified: `apps/server/src/index.ts`, `apps/server/src/routes/documents.ts`, `apps/server/src/routes/treeNodes.ts`, `apps/server/src/routes/workspaces.ts`, `apps/server/tsconfig.json`, `apps/web/src/components/Editor.tsx`, `apps/web/src/pages/Workspace.tsx`.
+- Updated `progress.md` and `roadmap.md`.
 
 ---
 

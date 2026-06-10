@@ -7,6 +7,7 @@ import { createWorkspaceSchema, updateWorkspaceSchema } from '@marktree/shared';
 import { randomUUID } from 'crypto';
 import { mkdirSync } from 'fs';
 import { join } from 'path';
+import { initGitRepo } from '../lib/git.js';
 
 const router = Router();
 const GIT_REPOS_DIR = process.env.GIT_REPOS_DIR || './data/repos';
@@ -86,6 +87,7 @@ router.post('/', requireAuth, async (req: AuthenticatedRequest, res) => {
   });
 
   mkdirSync(repoPath, { recursive: true });
+  await initGitRepo(repoPath);
 
   const ws = await db.select().from(workspace).where(eq(workspace.id, id)).get();
   res.status(201).json(ws);

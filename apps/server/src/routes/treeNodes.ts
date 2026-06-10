@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { eq, and, isNull } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import { treeNode, workspaceMember } from '../db/schema.js';
+import { treeNode, workspaceMember, document } from '../db/schema.js';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 import { createTreeNodeSchema, updateTreeNodeSchema } from '@marktree/shared';
 import { randomUUID } from 'crypto';
@@ -115,7 +115,7 @@ router.patch('/:id', requireAuth, async (req: AuthenticatedRequest, res) => {
   res.json(updated);
 });
 
-// Delete tree node
+// Delete tree node (recursive for folders, cascade for documents)
 router.delete('/:id', requireAuth, async (req: AuthenticatedRequest, res) => {
   const userId = req.user!.id;
   const nodeId = req.params.id as string;
@@ -131,7 +131,33 @@ router.delete('/:id', requireAuth, async (req: AuthenticatedRequest, res) => {
     return;
   }
 
-  await db.delete(treeNode).where(eq(treeNode.id, nodeId));
+  // Recursively collect all descendant node IDs
+  const idsToDelete: string[] = [];
+  async function collectDescendants(id: string) {
+    idsToDelete.push(id);
+    const children = await db.select().from(treeNode).where(eq(treeNode.parentId, id));
+    for (const child of children) {
+      await collectDescendants(child.id);
+    }
+  }
+  await collectDescendants(nodeId);
+
+  // Delete associated documents for document-type nodes
+  const docNodeIds = idsToDelete.filter(async (id) => {
+    const n = await db.select().from(treeNode).where(eq(treeNode.id, id)).get();
+    return n?.type === 'document';
+  });
+
+  // Simpler: just delete all documents whose treeNodeId is in idsToDelete
+  if (idsToDelete.length > 0) {
+    await db.delete(document).where(inArray(document.treeNodeId, idsToDelete));
+  }
+
+  // Delete all tree nodes
+  for (const id of idsToDelete) {
+    await db.delete(treeNode).where(eq(treeNode.id, id));
+  }
+
   res.status(204).send();
 });
 

@@ -8,6 +8,7 @@ import { sqlite } from './db/index.js';
 import workspaceRoutes from './routes/workspaces.js';
 import treeNodeRoutes from './routes/treeNodes.js';
 import documentRoutes from './routes/documents.js';
+import { setupWebSocket } from './websocket.js';
 
 initDatabase(sqlite);
 
@@ -35,6 +36,8 @@ app.use('/api/workspaces', workspaceRoutes);
 app.use('/api/tree-nodes', treeNodeRoutes);
 app.use('/api/documents', documentRoutes);
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Marktree server running on http://localhost:${PORT}`);
 });
+
+setupWebSocket(server);

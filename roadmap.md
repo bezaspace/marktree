@@ -30,12 +30,12 @@ The smallest set of features that makes Marktree usable by a single team. Everyt
 - Excluded from MVP: Guest users (1.2), drag-and-drop reordering (1.4), optimistic locking on folder tree (deferred to Phase 2)
 - Definition of Done: A single user can register, create a workspace, add nested folders, create Markdown documents, edit with TipTap, and reload the page to see persisted content.
 
-**Phase 2: Real-Time Collaboration**
+**Phase 2: Real-Time Collaboration — COMPLETED (2026-06-10)**
 - From spec: Section 2.1–2.4 (Yjs Integration, WebSocket, Conflict Resolution)
 - Excluded from MVP: Cursor presence (2.3), user activity status, document locking (2.5)
 - Definition of Done: Two users can open the same document and see each other's edits in real-time without data loss.
 
-**Phase 3: Version Control**
+**Phase 3: Version Control — COMPLETED (2026-06-10)**
 - From spec: Sections 3.1–3.2 (Git Integration, Document-Level History)
 - Excluded from MVP: Tree-level snapshots (3.3), blame (3.4), commit management UI (3.5), branching/merging
 - Definition of Done: Every manual save creates a Git commit. Users can view a document's version timeline, diff any two versions, and restore to a previous version.
