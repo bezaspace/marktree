@@ -5,3 +5,39 @@
 body {
   @apply bg-gray-50 text-gray-900 antialiased;
 }
+
+/* Phase 4: Comment highlights */
+.comment-highlight {
+  background-color: rgba(251, 191, 36, 0.3);
+  border-bottom: 2px solid rgba(251, 191, 36, 0.6);
+  cursor: pointer;
+}
+
+.comment-highlight:hover {
+  background-color: rgba(251, 191, 36, 0.5);
+}
+
+.comment-highlight-resolved {
+  background-color: rgba(156, 163, 175, 0.2);
+  border-bottom: 2px solid rgba(156, 163, 175, 0.4);
+}
+
+/* ProseMirror cursor styles for collaboration */
+.ProseMirror-yjs-cursor {
+  position: relative;
+  margin-left: -1px;
+  border-left: 1px solid orange;
+  height: 1.2em;
+}
+
+.ProseMirror-yjs-cursor > div {
+  position: absolute;
+  top: -1.2em;
+  left: -1px;
+  font-size: 10px;
+  background-color: orange;
+  color: white;
+  padding: 2px 4px;
+  border-radius: 3px;
+  white-space: nowrap;
+}

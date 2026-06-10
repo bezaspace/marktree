@@ -21,6 +21,7 @@ This is the **decision log and implementation journal**. It records what was bui
 | Foundation | **Completed** | 2026-06-10 |
 | Real-Time Collaboration | **Completed** | 2026-06-10 |
 | Version Control | **Completed** | 2026-06-10 |
+| Comments & Review | **Completed** | 2026-06-10 |
 
 ---
 
@@ -97,6 +98,32 @@ This is the **decision log and implementation journal**. It records what was bui
 **Impact:**
 - New files: `apps/server/src/websocket.ts`, `apps/server/src/lib/git.ts`, `apps/web/src/lib/yjs-provider.ts`.
 - Modified: `apps/server/src/index.ts`, `apps/server/src/routes/documents.ts`, `apps/server/src/routes/treeNodes.ts`, `apps/server/src/routes/workspaces.ts`, `apps/server/tsconfig.json`, `apps/web/src/components/Editor.tsx`, `apps/web/src/pages/Workspace.tsx`.
+- Updated `progress.md` and `roadmap.md`.
+
+### 2026-06-10 — Phase 4: Comments & Review Implemented
+
+**What happened:**
+- Added `comment` and `notification` tables to the SQLite schema with full Drizzle ORM definitions and manual CREATE TABLE statements in `initDatabase()`.
+- Built backend REST API for comments: `GET /api/comments/document/:id`, `POST /api/comments`, `PATCH /api/comments/:id`, `DELETE /api/comments/:id`.
+- Built backend REST API for notifications: `GET /api/notifications`, `GET /api/notifications/unread-count`, `POST /api/notifications/:id/read`, `POST /api/notifications/read-all`.
+- Integrated notification creation into comment posting: all workspace members (except the author) receive an in-app notification when a new comment is added to a document.
+- Implemented frontend `CommentSidebar` component with threaded replies, resolve/unresolve, filtering (all/open), and anchored comment highlighting.
+- Implemented frontend `NotificationBell` component with unread badge, dropdown list, mark-as-read, and mark-all-as-read functionality. Polls for new notifications every 30 seconds.
+- Implemented `CommentHighlight` TipTap/ProseMirror plugin that renders yellow inline highlights for comment-anchored text ranges, with hover-to-highlight sidebar synchronization.
+- Updated `Editor.tsx` to track text selection and show a floating "Add comment" toolbar. Uses `Y.createRelativePositionFromTypeIndex` to store Yjs-relative anchor positions alongside absolute ProseMirror positions.
+- Updated `Workspace.tsx` to integrate comment sidebar, notification bell, and real-time comment highlight sync between editor and sidebar.
+- Added CSS styles for `.comment-highlight` and `.comment-highlight-resolved`.
+
+**Decisions made:**
+- **Yjs relative positions + absolute positions for comment anchoring:** We store both `anchorFrom/anchorTo` (absolute) and `yjsRelPosStart/End` (Yjs relative) for each comment. The absolute positions are used for immediate rendering; the Yjs relative positions allow future position mapping when the document changes. For this MVP, we re-apply absolute positions on each load and rely on the sidebar to re-sync.
+- **Suggestion mode (4.2) deferred:** Full tracked-changes/suggestion mode requires deep CRDT integration (a separate Yjs type or ProseMirror plugin) and was judged too complex for this session. The spec calls it out as a distinct sub-feature.
+- **@Mentions (4.3) simplified:** Users can type `@username` in comments as plain text. Full autocomplete, user search, and mention-triggered notifications are identified as follow-up enhancements.
+- **Email notifications deferred:** In-app notifications are implemented; email delivery requires an SMTP provider integration and is out of scope for this session.
+- **Decorations over marks for highlights:** We use ProseMirror `Decoration.inline` (via a custom TipTap extension) rather than marks to avoid modifying the shared document model. Decorations are view-layer only and do not interfere with Yjs collaboration sync.
+
+**Impact:**
+- New files: `apps/server/src/routes/comments.ts`, `apps/server/src/routes/notifications.ts`, `apps/web/src/components/CommentSidebar.tsx`, `apps/web/src/components/NotificationBell.tsx`, `apps/web/src/components/comment-highlight.ts`.
+- Modified: `apps/server/src/db/schema.ts`, `apps/server/src/db/init.ts`, `apps/server/src/index.ts`, `apps/web/src/components/Editor.tsx`, `apps/web/src/pages/Workspace.tsx`, `apps/web/src/index.css`, `packages/shared/src/schemas.ts`, `packages/shared/src/types.ts`.
 - Updated `progress.md` and `roadmap.md`.
 
 ---

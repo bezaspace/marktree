@@ -2,8 +2,11 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useSession, signOut } from "../lib/auth-client.js";
 import { Editor } from "../components/Editor.js";
+import { CommentSidebar, type CommentItem } from "../components/CommentSidebar.js";
+import { NotificationBell } from "../components/NotificationBell.js";
 import * as Y from "yjs";
 import { MarktreeProvider } from "../lib/yjs-provider.js";
+import type { CommentRange } from "../components/comment-highlight.js";
 
 interface TreeNode {
   id: string;
@@ -52,6 +55,15 @@ export default function Workspace() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [docContent, setDocContent] = useState<string>("");
 
+  // Phase 4: Comments state
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [selectedCommentRange, setSelectedCommentRange] = useState<{ from: number; to: number } | null>(null);
+  const [yjsRelPosStart, setYjsRelPosStart] = useState<string | null>(null);
+  const [yjsRelPosEnd, setYjsRelPosEnd] = useState<string | null>(null);
+  const [commentRanges, setCommentRanges] = useState<CommentRange[]>([]);
+  const [highlightedCommentId, setHighlightedCommentId] = useState<string | null>(null);
+  const [comments, setComments] = useState<CommentItem[]>([]);
+
   const yDocRef = useRef<Y.Doc | null>(null);
   const providerRef = useRef<MarktreeProvider | null>(null);
 
@@ -78,6 +90,13 @@ export default function Workspace() {
       providerRef.current = null;
     };
   }, []);
+
+  // Poll comments periodically when document is open
+  useEffect(() => {
+    if (!selectedDoc || !commentsOpen) return;
+    const interval = setInterval(fetchComments, 5000);
+    return () => clearInterval(interval);
+  }, [selectedDoc, commentsOpen]);
 
   async function createFolder(e: React.FormEvent) {
     e.preventDefault();
@@ -129,7 +148,6 @@ export default function Workspace() {
   }
 
   async function openDocumentById(docId: string) {
-    // cleanup previous collaboration session
     providerRef.current?.destroy();
     yDocRef.current = null;
     providerRef.current = null;
@@ -140,12 +158,34 @@ export default function Workspace() {
     setSelectedDoc(doc);
     setDocContent(doc.currentContent ?? "");
 
-    // Setup Yjs collaboration
     const ydoc = new Y.Doc();
     yDocRef.current = ydoc;
     const wsUrl = `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/ws?documentId=${doc.id}`;
     const provider = new MarktreeProvider(ydoc, wsUrl);
     providerRef.current = provider;
+
+    // Load comments for this document
+    await fetchComments(docId);
+  }
+
+  async function fetchComments(docId?: string) {
+    const id = docId || selectedDoc?.id;
+    if (!id) return;
+    const res = await fetch(`/api/comments/document/${id}`, { credentials: "include" });
+    if (res.ok) {
+      const data: CommentItem[] = await res.json();
+      setComments(data);
+      // Map comments to highlight ranges
+      const ranges: CommentRange[] = data
+        .filter((c) => c.anchorFrom !== null && c.anchorTo !== null)
+        .map((c) => ({
+          id: c.id,
+          from: c.anchorFrom!,
+          to: c.anchorTo!,
+          resolved: c.resolved,
+        }));
+      setCommentRanges(ranges);
+    }
   }
 
   async function openDocument(node: TreeNode) {
@@ -254,43 +294,52 @@ export default function Workspace() {
       const data = await res.json();
       setDocContent(data.content);
       setSelectedDoc((d) => (d ? { ...d, currentContent: data.content } : null));
-      // Re-open the document to re-sync Yjs state with restored content
       setHistoryOpen(false);
       await openDocumentById(selectedDoc.id);
     }
   }
 
+  function handleSelectionForComment(
+    range: { from: number; to: number } | null,
+    relStart: string | null,
+    relEnd: string | null
+  ) {
+    setSelectedCommentRange(range);
+    setYjsRelPosStart(relStart);
+    setYjsRelPosEnd(relEnd);
+    if (range) setCommentsOpen(true);
+  }
+
+  function handleClearSelection() {
+    setSelectedCommentRange(null);
+    setYjsRelPosStart(null);
+    setYjsRelPosEnd(null);
+  }
+
+  function handleHighlightComment(comment: CommentItem | null) {
+    setHighlightedCommentId(comment?.id || null);
+  }
+
   function buildTree(parentId: string | null): TreeNode[] {
     return nodes
       .filter((n) => n.parentId === parentId)
-      .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .filter((n) => {
+        if (!search) return true;
+        return n.name.toLowerCase().includes(search.toLowerCase());
+      });
   }
 
-  function nodeMatchesSearch(node: TreeNode): boolean {
-    if (!search) return true;
-    const s = search.toLowerCase();
-    return node.name.toLowerCase().includes(s);
-  }
-
-  function anyDescendantMatches(node: TreeNode): boolean {
-    if (nodeMatchesSearch(node)) return true;
-    const children = nodes.filter((n) => n.parentId === node.id);
-    return children.some(anyDescendantMatches);
-  }
-
-  function renderTree(parentId: string | null, depth = 0): React.ReactNode {
-    const children = buildTree(parentId);
-    return children.map((node) => {
-      if (search && !anyDescendantMatches(node)) return null;
-      const isExpanded = expanded.has(node.id);
-
+  function renderTree(parentId: string | null, depth = 0): JSX.Element[] {
+    return buildTree(parentId).map((node) => {
+      const isExpanded = expanded.has(node.id) || !!search;
       return (
         <div key={node.id} style={{ paddingLeft: depth * 12 }}>
           {node.type === "folder" ? (
-            <div className="flex items-center gap-1 py-1 text-gray-700 group">
+            <div className="flex items-center gap-1 py-1 group">
               <button
                 onClick={() => toggleFolder(node.id)}
-                className="text-gray-400 w-4 text-center"
+                className="text-gray-400 text-sm w-4 text-center hover:text-gray-600"
               >
                 {isExpanded ? "\u25BC" : "\u25B6"}
               </button>
@@ -327,7 +376,7 @@ export default function Workspace() {
             </div>
           ) : (
             <div className="flex items-center gap-1 py-1 group">
-              <span className="text-gray-400 text-sm w-4 text-center">\u25A2;</span>
+              <span className="text-gray-400 text-sm w-4 text-center">&#9646;</span>
               {editingNodeId === node.id ? (
                 <input
                   autoFocus
@@ -385,6 +434,7 @@ export default function Workspace() {
           </button>
         </div>
         <div className="flex items-center gap-4">
+          <NotificationBell />
           <span className="text-sm text-gray-600">{session?.user?.email}</span>
           <button onClick={() => signOut()} className="text-sm text-red-600 hover:text-red-700">
             Sign out
@@ -472,6 +522,14 @@ export default function Workspace() {
                 </div>
                 <div className="flex items-center gap-3">
                   <button
+                    onClick={() => setCommentsOpen(!commentsOpen)}
+                    className={`text-sm border rounded px-2 py-1 ${
+                      commentsOpen ? "bg-blue-50 text-blue-700 border-blue-200" : "text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    Comments {commentRanges.length > 0 && `(${commentRanges.length})`}
+                  </button>
+                  <button
                     onClick={loadHistory}
                     className="text-sm text-gray-600 hover:text-gray-900 border rounded px-2 py-1"
                   >
@@ -489,6 +547,9 @@ export default function Workspace() {
                     onSave={saveDocument}
                     saving={saving}
                     onContentChange={setDocContent}
+                    onSelectionForComment={handleSelectionForComment}
+                    commentRanges={commentRanges}
+                    highlightedCommentId={highlightedCommentId}
                   />
                 )}
               </div>
@@ -499,6 +560,21 @@ export default function Workspace() {
             </div>
           )}
         </main>
+
+        {/* Comment Sidebar */}
+        {commentsOpen && selectedDoc && (
+          <CommentSidebar
+            documentId={selectedDoc.id}
+            selectedRange={selectedCommentRange}
+            yjsRelPosStart={yjsRelPosStart}
+            yjsRelPosEnd={yjsRelPosEnd}
+            onClearSelection={handleClearSelection}
+            onHighlightComment={handleHighlightComment}
+            onCommentsChange={() => {
+              if (selectedDoc) fetchComments(selectedDoc.id);
+            }}
+          />
+        )}
       </div>
 
       {/* History Panel */}
@@ -513,63 +589,55 @@ export default function Workspace() {
             </div>
             <div className="flex-1 overflow-y-auto p-4">
               {historyLoading ? (
-                <p className="text-gray-500">Loading...</p>
+                <p className="text-gray-500 text-sm">Loading...</p>
               ) : history.length === 0 ? (
-                <p className="text-gray-500">No history yet. Save a document to create a version.</p>
+                <p className="text-gray-400 text-sm">No history yet. Save the document to create versions.</p>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {history.map((entry) => (
                     <div key={entry.hash} className="border rounded p-3 text-sm">
-                      <p className="font-medium">{entry.message}</p>
-                      <p className="text-gray-500 text-xs mt-1">
-                        {entry.author} &middot; {new Date(entry.date).toLocaleString()}
-                      </p>
-                      <div className="mt-2 flex gap-2">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-mono text-xs bg-gray-100 px-1 rounded">{entry.hash.slice(0, 7)}</span>
+                        <span className="text-xs text-gray-500">{entry.author}</span>
+                      </div>
+                      <p className="text-gray-700 text-xs mb-1">{entry.message}</p>
+                      <p className="text-gray-400 text-[10px]">{new Date(entry.date).toLocaleString()}</p>
+                      <div className="flex gap-2 mt-2">
                         <button
                           onClick={() => restoreVersion(entry.hash)}
-                          className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded hover:bg-blue-100"
+                          className="text-xs text-blue-600 hover:underline"
                         >
                           Restore
                         </button>
                         <button
                           onClick={() => {
                             setDiffFrom(entry.hash);
-                            setDiffTo("");
                             setDiff("");
                           }}
-                          className="text-xs bg-gray-50 text-gray-700 px-2 py-1 rounded hover:bg-gray-100"
+                          className="text-xs text-gray-500 hover:underline"
                         >
-                          Diff from
+                          {diffFrom === entry.hash ? "Selected" : "Diff from"}
                         </button>
-                        <button
-                          onClick={() => {
-                            if (!diffFrom) return;
-                            setDiffTo(entry.hash);
-                          }}
-                          className="text-xs bg-gray-50 text-gray-700 px-2 py-1 rounded hover:bg-gray-100"
-                        >
-                          Diff to
-                        </button>
+                        {diffFrom && diffFrom !== entry.hash && (
+                          <button
+                            onClick={() => {
+                              setDiffTo(entry.hash);
+                              loadDiff();
+                            }}
+                            className="text-xs text-blue-600 hover:underline"
+                          >
+                            Diff to
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
-
-                  {diffFrom && diffTo && (
-                    <div className="border rounded p-3">
-                      <p className="text-xs font-medium mb-2">
-                        Diff: {diffFrom.slice(0, 7)} &rarr; {diffTo.slice(0, 7)}
-                      </p>
-                      <button
-                        onClick={loadDiff}
-                        className="text-xs bg-gray-800 text-white px-2 py-1 rounded mb-2"
-                      >
-                        Show Diff
-                      </button>
-                      {diff && (
-                        <pre className="text-xs bg-gray-50 p-2 rounded overflow-x-auto whitespace-pre-wrap">
-                          {diff}
-                        </pre>
-                      )}
+                  {diff && (
+                    <div className="border rounded p-3 bg-gray-50">
+                      <h4 className="text-xs font-semibold mb-2">Diff</h4>
+                      <pre className="text-[10px] overflow-x-auto whitespace-pre-wrap font-mono text-gray-700">
+                        {diff}
+                      </pre>
                     </div>
                   )}
                 </div>

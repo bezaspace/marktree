@@ -8,6 +8,8 @@ import { sqlite } from './db/index.js';
 import workspaceRoutes from './routes/workspaces.js';
 import treeNodeRoutes from './routes/treeNodes.js';
 import documentRoutes from './routes/documents.js';
+import commentRoutes from './routes/comments.js';
+import notificationRoutes from './routes/notifications.js';
 import { setupWebSocket } from './websocket.js';
 
 initDatabase(sqlite);
@@ -35,6 +37,8 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/workspaces', workspaceRoutes);
 app.use('/api/tree-nodes', treeNodeRoutes);
 app.use('/api/documents', documentRoutes);
+app.use('/api/comments', commentRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 const server = app.listen(PORT, () => {
   console.log(`Marktree server running on http://localhost:${PORT}`);

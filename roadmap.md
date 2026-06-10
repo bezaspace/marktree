@@ -22,6 +22,7 @@ The smallest set of features that makes Marktree usable by a single team. Everyt
 | 1 | Foundation | Auth, workspace management, folder tree, single-user Markdown editor, basic persistence | None |
 | 2 | Real-Time Collaboration | Yjs sync for multi-user editing on the same document | Phase 1 |
 | 3 | Version Control | Git-backed manual checkpoints, per-document history, diff/restore | Phase 1 |
+| 4 | Comments & Review | Inline comments, threaded replies, resolve/unresolve, in-app notifications | Phase 1 |
 
 ### MVP Details
 
@@ -39,6 +40,11 @@ The smallest set of features that makes Marktree usable by a single team. Everyt
 - From spec: Sections 3.1–3.2 (Git Integration, Document-Level History)
 - Excluded from MVP: Tree-level snapshots (3.3), blame (3.4), commit management UI (3.5), branching/merging
 - Definition of Done: Every manual save creates a Git commit. Users can view a document's version timeline, diff any two versions, and restore to a previous version.
+
+**Phase 4: Comments & Review — COMPLETED (2026-06-10)**
+- From spec: Sections 4.1, 4.3, 4.4 (Inline Comments, @Mentions, Notifications)
+- Excluded from MVP: Suggestion mode / tracked changes (4.2), email notifications (4.4), full mention autocomplete (4.3)
+- Definition of Done: Users can select text and add anchored inline comments with threaded replies, resolve/unresolve comments, view a comment sidebar with filtering, and receive in-app notifications for new comments.
 
 ---
 

@@ -53,3 +53,29 @@ export interface YjsUpdate {
   updateBlob: Buffer;
   createdAt: Date;
 }
+
+export interface Comment {
+  id: string;
+  documentId: string;
+  authorId: string;
+  content: string;
+  resolved: boolean;
+  parentId: string | null;
+  anchorFrom: number | null;
+  anchorTo: number | null;
+  yjsRelPosStart: string | null;
+  yjsRelPosEnd: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  type: 'comment' | 'mention' | 'document_shared' | 'version_restored';
+  content: string;
+  read: boolean;
+  relatedDocumentId: string | null;
+  relatedCommentId: string | null;
+  createdAt: Date;
+}

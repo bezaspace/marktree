@@ -96,5 +96,31 @@ export function initDatabase(sqlite: Database.Database) {
       update_blob BLOB NOT NULL,
       created_at INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS comment (
+      id TEXT PRIMARY KEY,
+      document_id TEXT NOT NULL REFERENCES document(id),
+      author_id TEXT NOT NULL REFERENCES "user"(id),
+      content TEXT NOT NULL,
+      resolved INTEGER NOT NULL DEFAULT 0,
+      parent_id TEXT REFERENCES comment(id),
+      anchor_from INTEGER,
+      anchor_to INTEGER,
+      yjs_rel_pos_start TEXT,
+      yjs_rel_pos_end TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS notification (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES "user"(id),
+      type TEXT NOT NULL,
+      content TEXT NOT NULL,
+      read INTEGER NOT NULL DEFAULT 0,
+      related_document_id TEXT REFERENCES document(id),
+      related_comment_id TEXT REFERENCES comment(id),
+      created_at INTEGER NOT NULL
+    );
   `);
 }

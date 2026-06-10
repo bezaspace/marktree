@@ -48,3 +48,19 @@ export const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
 });
+
+// Comment schemas
+export const createCommentSchema = z.object({
+  documentId: z.string(),
+  content: z.string().min(1).max(5000),
+  parentId: z.string().optional(),
+  anchorFrom: z.number().int().optional(),
+  anchorTo: z.number().int().optional(),
+  yjsRelPosStart: z.string().optional(),
+  yjsRelPosEnd: z.string().optional(),
+});
+
+export const updateCommentSchema = z.object({
+  content: z.string().min(1).max(5000).optional(),
+  resolved: z.boolean().optional(),
+});

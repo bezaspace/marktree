@@ -122,3 +122,44 @@ export const documentRelations = relations(document, ({ one, many }) => ({
 export const yjsUpdateRelations = relations(yjsUpdate, ({ one }) => ({
   document: one(document, { fields: [yjsUpdate.documentId], references: [document.id] }),
 }));
+
+// Phase 4: Comments & Review
+export const comment = sqliteTable('comment', {
+  id: text('id').primaryKey(),
+  documentId: text('document_id').notNull().references(() => document.id),
+  authorId: text('author_id').notNull().references(() => user.id),
+  content: text('content').notNull(),
+  resolved: integer('resolved', { mode: 'boolean' }).notNull().default(false),
+  parentId: text('parent_id'), // for threaded replies
+  anchorFrom: integer('anchor_from'), // absolute ProseMirror position
+  anchorTo: integer('anchor_to'),
+  yjsRelPosStart: text('yjs_rel_pos_start'), // JSON serialized Yjs relative position
+  yjsRelPosEnd: text('yjs_rel_pos_end'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+});
+
+export const notification = sqliteTable('notification', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => user.id),
+  type: text('type', { enum: ['comment', 'mention', 'document_shared', 'version_restored'] }).notNull(),
+  content: text('content').notNull(),
+  read: integer('read', { mode: 'boolean' }).notNull().default(false),
+  relatedDocumentId: text('related_document_id').references(() => document.id),
+  relatedCommentId: text('related_comment_id').references(() => comment.id),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+});
+
+// Phase 4 relations
+export const commentRelations = relations(comment, ({ one, many }) => ({
+  document: one(document, { fields: [comment.documentId], references: [document.id] }),
+  author: one(user, { fields: [comment.authorId], references: [user.id] }),
+  parent: one(comment, { fields: [comment.parentId], references: [comment.id] }),
+  replies: many(comment),
+}));
+
+export const notificationRelations = relations(notification, ({ one }) => ({
+  user: one(user, { fields: [notification.userId], references: [user.id] }),
+  relatedDocument: one(document, { fields: [notification.relatedDocumentId], references: [document.id] }),
+  relatedComment: one(comment, { fields: [notification.relatedCommentId], references: [comment.id] }),
+}));
